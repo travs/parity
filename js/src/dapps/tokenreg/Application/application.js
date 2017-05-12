@@ -35,12 +35,16 @@ const muiTheme = getMuiTheme({
 export default class Application extends Component {
   static childContextTypes = {
     muiTheme: PropTypes.object
-  }
+  };
 
   static propTypes = {
     isLoading: PropTypes.bool.isRequired,
 
     contract: PropTypes.object
+  };
+
+  state = {
+    showWarning: true
   };
 
   render () {
@@ -58,13 +62,29 @@ export default class Application extends Component {
           address={ contract.address }
           fee={ contract.fee }
         />
-
         <Actions />
-
         <Tokens />
-        <div className={ styles.warning }>
-          WARNING: The token registry is experimental. Please ensure that you understand the steps, risks, benefits & consequences of registering a token before doing so. A non-refundable fee of { api.util.fromWei(contract.fee).toFormat(3) }<small>ETH</small> is required for all registrations.
-        </div>
+        { this.renderWarning() }
+      </div>
+    );
+  }
+
+  renderWarning () {
+    if (!this.state.showWarning) {
+      return null;
+    }
+
+    const { contract } = this.props;
+
+    return (
+      <div
+        className={ styles.warning }
+        onClick={ this.handleHideWarning }
+      >
+        WARNING: The token registry is experimental. Please ensure that you understand the steps,
+        risks, benefits & consequences of registering a token before doing so. A non-refundable
+        fee of { api.util.fromWei(contract.fee).toFormat(3) }<small>ETH</small> is required for
+        all registrations.
       </div>
     );
   }
@@ -74,4 +94,8 @@ export default class Application extends Component {
       muiTheme
     };
   }
+
+  handleHideWarning = () => {
+    this.setState({ showWarning: false });
+  };
 }

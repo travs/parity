@@ -93,7 +93,8 @@ export const loadTokens = () => (dispatch, getState) => {
     });
 };
 
-export const loadToken = (index) => (dispatch, getState) => {
+export const loadToken = (_index) => (dispatch, getState) => {
+  const index = parseInt(_index);
   const state = getState();
   const contractInstance = state.status.contract.instance;
   const userAccounts = state.accounts.list;
@@ -101,10 +102,19 @@ export const loadToken = (index) => (dispatch, getState) => {
 
   dispatch(setTokenLoading(index, true));
 
-  contractInstance
-    .token
-    .call({}, [ parseInt(index) ])
-    .then((result) => {
+  // Returns the TLA in metadata, or empty string
+  const tla = getTokenMeta(contractInstance, index, 'TLA')
+    .then((meta) => meta.value || '')
+    .catch(() => '');
+
+  const tokenInfo = contractInstance.token.call({}, [ index ]);
+
+  Promise
+    .all([
+      tokenInfo,
+      tla
+    ])
+    .then(([ result, metaTla ]) => {
       const tokenOwner = result[4];
       const isTokenOwner = userAccounts
         .filter(a => a.address === tokenOwner)
@@ -112,7 +122,7 @@ export const loadToken = (index) => (dispatch, getState) => {
       const data = {
         index: parseInt(index),
         address: result[0],
-        tla: result[1],
+        tla: result[1] || metaTla,
         base: result[2].toNumber(),
         name: result[3],
         owner: tokenOwner,
@@ -153,14 +163,8 @@ export const loadToken = (index) => (dispatch, getState) => {
     });
 };
 
-export const queryTokenMeta = (index, query) => (dispatch, getState) => {
-  const state = getState();
-  const contractInstance = state.status.contract.instance;
-  const startDate = Date.now();
-
-  dispatch(setTokenMetaLoading(index, true));
-
-  contractInstance
+function getTokenMeta (contractInstance, index, query) {
+  return contractInstance
     .meta
     .call({}, [ index, query ])
     .then((value) => {
@@ -169,6 +173,19 @@ export const queryTokenMeta = (index, query) => (dispatch, getState) => {
         value: value.find(v => v !== 0) ? bytesToHex(value) : null
       };
 
+      return meta;
+    });
+}
+
+export const queryTokenMeta = (index, query) => (dispatch, getState) => {
+  const state = getState();
+  const contractInstance = state.status.contract.instance;
+  const startDate = Date.now();
+
+  dispatch(setTokenMetaLoading(index, true));
+
+  getTokenMeta(contractInstance, index, query)
+    .then((meta) => {
       dispatch(setTokenMeta(index, meta));
 
       setTimeout(() => {
